@@ -44,13 +44,22 @@ fi
 log_info "Using snapshot '$SNAP_NAME'."
 
 # 3. Create VM
-gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
-  --machine-type="${MACHINE_TYPE:-n1-standard-4}" \
-  --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
-  --provisioning-model=SPOT --maintenance-policy=TERMINATE \
-  --source-snapshot="$SNAP_NAME" \
-  --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
-  --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
+if [[ "$VM" == *"-downloader" ]]; then
+  gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
+    --machine-type="${DOWNLOADER_MACHINE_TYPE:-e2-small}" \
+    --provisioning-model=SPOT --maintenance-policy=TERMINATE \
+    --source-snapshot="$SNAP_NAME" \
+    --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
+    --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
+else
+  gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
+    --machine-type="${MACHINE_TYPE:-n1-standard-4}" \
+    --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
+    --provisioning-model=SPOT --maintenance-policy=TERMINATE \
+    --source-snapshot="$SNAP_NAME" \
+    --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
+    --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
+fi
 log_info "VM created."
 
 wait_for_ssh

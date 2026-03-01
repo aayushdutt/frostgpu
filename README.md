@@ -73,6 +73,16 @@ make tunnel   # Start working with tunnels (7860, 8888, etc.)
 make down     # Save work to GCS (optional) and destroy VM
 ```
 
+**4. Model Downloader (Cost Optimization)**
+To download large models without paying GPU rates, you can spin up a dedicated CPU-only instance from your same snapshot.
+```bash
+make dl-up    # Launch a cheap CPU-only (e2-small) instance
+make dl-ssh   # SSH to download models using wget/hf-cli
+make dl-sync  # Push the downloaded models to GCS
+make dl-down  # Destroy the CPU instance
+```
+It maintains the exact same environment and permissions, allowing you to sync `SYNC_DIRS` just like the main node.
+
 ---
 
 ### Advanced: Power User Workflows
