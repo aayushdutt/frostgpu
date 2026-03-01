@@ -18,8 +18,8 @@ if [[ ${#SYNC_PAIRS[@]} -gt 0 ]]; then
   echo ""
   echo "📦 SYNC & CLEAN?"
   echo "   (This syncs to GCS, empties local folders, then snapshots for a lean golden image)"
-  read -r -p "   Proceed with auto-sync and deep clean? (y/N): " autopre < /dev/tty
-  if [[ "$autopre" =~ ^[Yy]$ ]]; then
+  read -r -p "   Proceed with auto-sync and deep clean? (Y/n): " autopre < /dev/tty
+  if [[ ! "$autopre" =~ ^[Nn]$ ]]; then
     log_step "Syncing to GCS..."
     sync_dirs "down" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
     
@@ -42,18 +42,34 @@ gcloud compute snapshots create "$SNAP_NAME" \
   --storage-location="$REGION" > /dev/null
 log_info "Snapshot created."
 
-log_step "Pruning old snapshots (keeping last $KEEP)..."
-OLD_SNAPS=$(gcloud compute snapshots list \
+log_step "Fetching current snapshots list..."
+ALL_SNAPS=$(gcloud compute snapshots list \
   --project="$PROJECT" --filter="name~^${SNAP}-[0-9]" \
-  --sort-by=~creationTimestamp --format="value(name)" 2>/dev/null | tail -n +$((KEEP + 1)))
+  --sort-by=~creationTimestamp --format="value(name)" 2>/dev/null || true)
 
-if [[ -n "$OLD_SNAPS" ]]; then
+OLD_SNAPS=$(echo "$ALL_SNAPS" | tail -n +$((KEEP + 1)))
+PREV_SNAP=$(echo "$ALL_SNAPS" | sed -n '2p')
+
+log_step "Pruning old snapshots (keeping last $KEEP automatically)..."
+if [[ -n "$OLD_SNAPS" && "$OLD_SNAPS" != *" "* && "$OLD_SNAPS" != "" ]]; then
   while IFS= read -r old; do
+    [[ -z "$old" ]] && continue
     gcloud compute snapshots delete "$old" --project="$PROJECT" --quiet > /dev/null
     log_info "Deleted old snapshot '$old'."
   done <<< "$OLD_SNAPS"
 else
-  log_info "Nothing to prune."
+  log_info "No older snapshots to prune."
+fi
+
+if [[ -n "$PREV_SNAP" ]]; then
+  echo ""
+  read -r -p "   Delete the previous snapshot '$PREV_SNAP' too? (y/N): " del_prev < /dev/tty
+  if [[ "$del_prev" =~ ^[Yy]$ ]]; then
+    gcloud compute snapshots delete "$PREV_SNAP" --project="$PROJECT" --quiet > /dev/null
+    log_info "Deleted previous snapshot '$PREV_SNAP'."
+  else
+    log_info "Kept previous snapshot '$PREV_SNAP'."
+  fi
 fi
 
 echo ""
