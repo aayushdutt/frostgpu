@@ -1,0 +1,44 @@
+#cloud-config
+users:
+  - name: automatic
+    groups: sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - YOUR_PUBLIC_SSH_KEY_HERE
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - wget
+  - curl
+  - vim
+  - btop
+  - fzf
+  - tmux
+  - nvtop
+  - ubuntu-drivers-common
+
+write_files:
+  - path: /etc/sysctl.d/99-swappiness.conf
+    content: |
+      vm.swappiness=10
+  - path: /etc/ssh/sshd_config.d/99-custom.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      PermitRootLogin no
+
+runcmd:
+  - ubuntu-drivers autoinstall
+  - sysctl -p /etc/sysctl.d/99-swappiness.conf
+  - curl -LsSf https://astral.sh/uv/install.sh | sudo -u automatic sh
+  - echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/automatic/.bashrc
+  - echo 'source /usr/share/doc/fzf/examples/completion.bash' >> /home/automatic/.bashrc
+  - echo 'if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then tmux attach || tmux new; fi' >> /home/automatic/.bashrc
+  - chown automatic:automatic /home/automatic/.bashrc
+  - systemctl reload ssh

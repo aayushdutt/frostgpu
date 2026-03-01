@@ -1,0 +1,8 @@
+# Copy this file to config.mk and fill in your values.
+
+PROJECT_ID=your-gcp-project-id
+ZONE=europe-west2-b
+BUCKET=gs://my-sd-model-vault
+VM_NAME=sd-workspace
+SNAPSHOT=sd-golden-image
+VM_USER=automatic
