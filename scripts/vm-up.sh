@@ -49,7 +49,7 @@ gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
   --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
   --provisioning-model=SPOT --maintenance-policy=TERMINATE \
   --source-snapshot="$SNAP_NAME" \
-  --boot-disk-size=50GB --boot-disk-type=pd-balanced \
+  --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
   --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
 log_info "VM created."
 

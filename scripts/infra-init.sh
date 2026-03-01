@@ -24,7 +24,7 @@ gcloud compute instances create "$VM_NAME" \
   --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
   --provisioning-model=SPOT --maintenance-policy=TERMINATE \
   --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
-  --boot-disk-size=50GB --boot-disk-type=pd-balanced \
+  --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
   --scopes=https://www.googleapis.com/auth/cloud-platform \
   --metadata-from-file=user-data="$CLOUD_INIT_TEMP" > /dev/null
 

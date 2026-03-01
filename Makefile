@@ -6,9 +6,9 @@ _ := $(shell chmod +x scripts/*.sh)
 
 # Export variables to sub-shells so scripts can access them directly
 # (Reduces noise in the target definitions)
-export PROJECT_ID BUCKET ZONE VM_NAME SNAPSHOT VM_USER SYNC_DIRS SSH_FORWARDS MACHINE_TYPE ACCELERATOR
+export PROJECT_ID BUCKET ZONE VM_NAME SNAPSHOT VM_USER SYNC_DIRS SSH_FORWARDS MACHINE_TYPE ACCELERATOR DISK_SIZE
 
-.PHONY: init up down sync snapshot ssh tunnel teardown
+.PHONY: init up down sync snapshot ssh tunnel teardown stop vm-stop
 
 init:
 	@chmod +x scripts/*.sh
@@ -19,6 +19,11 @@ up:
 
 down:
 	@./scripts/vm-down.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(VM_USER) $(SYNC_DIRS)
+
+stop:
+	@./scripts/vm-stop.sh $(PROJECT_ID) $(ZONE) $(VM_NAME)
+
+vm-stop: stop
 
 sync:
 	@./scripts/vm-sync.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(VM_USER) $(SYNC_DIRS)
