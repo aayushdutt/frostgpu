@@ -57,6 +57,7 @@ make snapshot   # Saves OS + drivers + venv, keeps last 2 snapshots, optionally 
 make up         # Restore VM from snapshot, sync models from GCS
 make ui         # Open SSH tunnel → run ./webui.sh --xformers inside VM
 # Open http://localhost:7860
+make sync       # Optional: Mid-session sync top GCS (prevents loss if Spot VM is preempted)
 make down       # Sync outputs/models to GCS, destroy VM
 ```
 
@@ -68,6 +69,7 @@ make down       # Sync outputs/models to GCS, destroy VM
 |---------|-------------|
 | `make init` | First-time setup: bucket + base VM |
 | `make up` | Restore VM + sync models |
+| `make sync` | Mid-session sync of outputs to GCS |
 | `make down` | Sync outputs + destroy VM |
 | `make snapshot` | Rebake golden image, auto-prune to last 2, prompts to destroy VM |
 | `make ssh` | Plain SSH into VM |

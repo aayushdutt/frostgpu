@@ -1,14 +1,55 @@
 #!/bin/bash
 set -e
 
-: "${1:?Usage: vm-snapshot.sh <PROJECT> <ZONE> <VM> <SNAPSHOT_PREFIX>}"
-PROJECT=$1; ZONE=$2; VM=$3; SNAP=$4
+: "${1:?Usage: vm-snapshot.sh <PROJECT> <BUCKET> <ZONE> <VM> <SNAPSHOT_PREFIX> <VM_USER> [SYNC_DIRS...]}"
+PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; SNAP=$5; VM_USER=${6:-$(whoami)}
+shift 6
+SYNC_PAIRS=("$@")
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGION="${ZONE%-*}"
 KEEP=2
 SNAP_NAME="${SNAP}-$(date +%Y%m%d-%H%M%S)"
 
-echo "📸 [1/2] Creating snapshot '$SNAP_NAME'..."
+ssh_cmd() {
+  gcloud compute ssh "${VM_USER}@${VM}" --zone="$ZONE" \
+    --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null" \
+    --command="$1"
+}
+
+# ── Pre-flight check ──────────────────────────────────────────────────────────
+echo ""
+echo "🚀 Snapshotting '$VM' as '$SNAP_NAME'..."
+
+if [[ ${#SYNC_PAIRS[@]} -gt 0 ]]; then
+  echo ""
+  echo "📦 SYNC & CLEAN?"
+  echo "   (This syncs to GCS, empties local folders, then snapshots for a lean golden image)"
+  read -r -p "   Proceed with auto-sync and deep clean? (y/N): " autopre < /dev/tty
+  if [[ "$autopre" =~ ^[Yy]$ ]]; then
+    echo "📤 Syncing to GCS..."
+    "$SCRIPT_DIR/vm-sync.sh" "$PROJECT" "$BUCKET" "$ZONE" "$VM" "$VM_USER" "${SYNC_PAIRS[@]}"
+    
+    for pair in "${SYNC_PAIRS[@]}"; do
+      LOCAL="${pair%%:*}"
+      echo "     🧹 Emptying ${LOCAL}..."
+      ssh_cmd "rm -rf '${LOCAL}'/*" || echo "     ⚠️  Failed to empty ${LOCAL}."
+    done
+    echo "     ✅ Sync & Clean complete."
+  else
+    echo "     ⚠️  Skipping sync/clean. Warning: Snapshot will include local data (higher cost)."
+    read -r -p "   Continue with snapshot anyway? (y/N): " proceed < /dev/tty
+    if [[ ! "$proceed" =~ ^[Yy]$ ]]; then
+      echo "Aborted."
+      exit 0
+    fi
+  fi
+fi
+
+echo ""
+
+# ── Create snapshot ───────────────────────────────────────────────────────────
+echo "📸 [1/2] Creating snapshot..."
 gcloud compute snapshots create "$SNAP_NAME" \
   --project="$PROJECT" \
   --source-disk="$VM" \
@@ -16,6 +57,7 @@ gcloud compute snapshots create "$SNAP_NAME" \
   --storage-location="$REGION" > /dev/null
 echo "     ✅ Done."
 
+# ── Prune old snapshots ───────────────────────────────────────────────────────
 echo "🗑  Pruning (keeping last $KEEP)..."
 OLD_SNAPS=$(gcloud compute snapshots list \
   --project="$PROJECT" \
@@ -40,5 +82,6 @@ if [[ "$destroy" =~ ^[Yy]$ ]]; then
 else
   echo "     ℹ️  VM left running. Remember to run 'make down' when done."
 fi
+
 echo ""
 echo "✅ Golden image saved."

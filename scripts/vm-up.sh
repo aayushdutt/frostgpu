@@ -1,16 +1,23 @@
 #!/bin/bash
 set -e
 
-: "${1:?Usage: vm-up.sh <PROJECT> <BUCKET> <ZONE> <VM> <SNAPSHOT_PREFIX> <VM_USER>}"
-PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; SNAP=$5; VM_USER=${6:-automatic}
+: "${1:?Usage: vm-up.sh <PROJECT> <BUCKET> <ZONE> <VM> <SNAPSHOT_PREFIX> <VM_USER> [SYNC_DIRS...]}"
+PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; SNAP=$5; VM_USER=${6:-$(whoami)}
+shift 6
+# Remaining args are "local:remote" sync pairs (space-separated, passed from Makefile)
+SYNC_PAIRS=("$@")
+
+ssh_cmd() {
+  gcloud compute ssh "${VM_USER}@${VM}" --zone="$ZONE" \
+    --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null" \
+    --command="$1"
+}
 
 wait_for_ssh() {
   echo "⏳ [2/3] Waiting for VM to accept SSH..."
   local max_attempts=20
   local attempt=1
-  until gcloud compute ssh "${VM_USER}@${VM}" --zone="$ZONE" \
-    --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null" \
-    --command="echo ready" > /dev/null 2>&1; do
+  until ssh_cmd "echo ready" > /dev/null 2>&1; do
     if [[ $attempt -ge $max_attempts ]]; then
       echo "     ❌ VM unreachable after ${max_attempts} attempts. Aborting."
       exit 1
@@ -53,10 +60,21 @@ echo "     ✅ VM created."
 
 wait_for_ssh
 
-echo "📥 [3/3] Syncing models from GCS..."
-gcloud compute ssh "${VM_USER}@${VM}" --zone="$ZONE" \
-  --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null" \
-  --command="mkdir -p ~/stable-diffusion-webui/models/Stable-diffusion && (gcloud storage ls '${BUCKET}/models/' > /dev/null 2>&1 && gcloud storage rsync '${BUCKET}/models/' ~/stable-diffusion-webui/models/Stable-diffusion/ --recursive || echo 'No models in GCS yet, skipping.')" > /dev/null
-echo "     ✅ Models synced."
+if [[ ${#SYNC_PAIRS[@]} -eq 0 ]]; then
+  echo "ℹ️  [3/3] No SYNC_DIRS configured — skipping GCS sync."
+else
+  echo "📥 [3/3] Syncing from GCS..."
+  for pair in "${SYNC_PAIRS[@]}"; do
+    LOCAL="${pair%%:*}"
+    REMOTE="${pair#*:}"
+    echo "     ↓  ${BUCKET}/${REMOTE}/  →  ${LOCAL}"
+    ssh_cmd "mkdir -p '${LOCAL}' && \
+      (gcloud storage ls '${BUCKET}/${REMOTE}/' > /dev/null 2>&1 \
+        && gcloud storage rsync '${BUCKET}/${REMOTE}/' '${LOCAL}/' --recursive \
+        || echo 'No data at ${BUCKET}/${REMOTE}/ yet, skipping.')" > /dev/null
+  done
+  echo "     ✅ Sync complete."
+fi
+
 echo ""
-echo "✅ System online. Run 'make ui' then start the WebUI inside the VM."
+echo "✅ System online. SSH in with 'make ssh' or open a tunnel with 'make ui'."

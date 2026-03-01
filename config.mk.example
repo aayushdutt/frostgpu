@@ -2,7 +2,15 @@
 
 PROJECT_ID=your-gcp-project-id
 ZONE=europe-west2-b
-BUCKET=gs://my-sd-model-vault
-VM_NAME=sd-workspace
-SNAPSHOT=sd-golden-image
-VM_USER=automatic
+BUCKET=gs://my-gpu-workspace-bucket
+VM_NAME=gpu-workspace
+SNAPSHOT=gpu-golden-image
+VM_USER=your-linux-username
+
+# SYNC_DIRS — space-separated list of "local_path:gcs_subpath" pairs.
+# Each pair defines a directory to sync between the VM and GCS on 'make up'/'make down'.
+# local_path : path on the VM (may use ~)
+# gcs_subpath: path inside BUCKET (no leading slash, no gs:// prefix)
+# Example:
+#   SYNC_DIRS = ~/my-app/outputs:outputs ~/my-app/models:models
+SYNC_DIRS =
