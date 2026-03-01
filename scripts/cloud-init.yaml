@@ -1,6 +1,6 @@
 #cloud-config
 users:
-  - name: automatic
+  - name: {{VM_USER}}
     groups: sudo
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -18,6 +18,7 @@ packages:
   - fzf
   - tmux
   - nvtop
+  - tree
   - ubuntu-drivers-common
 
 write_files:
@@ -34,8 +35,8 @@ write_files:
 runcmd:
   - ubuntu-drivers autoinstall >> /var/log/gpu-driver-install.log 2>&1
   - sysctl -p /etc/sysctl.d/99-swappiness.conf
-  - curl -LsSf https://astral.sh/uv/install.sh | sudo -u automatic sh
-  - echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/automatic/.bashrc
-  - echo 'source /usr/share/doc/fzf/examples/completion.bash' >> /home/automatic/.bashrc
-  - chown automatic:automatic /home/automatic/.bashrc
+  - curl -LsSf https://astral.sh/uv/install.sh | sudo -u {{VM_USER}} sh
+  - echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/{{VM_USER}}/.bashrc
+  - echo 'source /usr/share/doc/fzf/examples/completion.bash' >> /home/{{VM_USER}}/.bashrc
+  - chown {{VM_USER}}:{{VM_USER}} /home/{{VM_USER}}/.bashrc
   - systemctl reload ssh

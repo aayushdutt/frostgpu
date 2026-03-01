@@ -1,81 +1,112 @@
 # spot-diffusion
 
-Zero idle cost Stable Diffusion on GCP Spot T4 GPUs. VMs are destroyed after every session and restored from a snapshot — you only pay while generating.
+GPU workstations on GCP that cost **$0.00** when you aren't using them. 
 
-**Cost:** ~$0.12/hr compute + $0.05/GB snapshots + $0.02/GB GCS. Roughly $6/month at ~1hr/day.
+This project implements a "Stateless Compute" pattern for GPU-heavy workloads. By splitting the OS, environment, and data into independent layers, it allows you to Provision → Work → Persist → Destroy in a single lifecycle.
+
+### Architecture: The State vs. Compute Split
+
+Most cloud GPUs bill you for the persistent disk (state) as long as the VM exists, even if it's "Stopped." This toolkit breaks the workstation into three cost-optimized layers:
+
+1.  **Immutable Environment (Snapshots)**: Your OS, drivers, and `uv/python` environments are baked into "Golden Images." Snapshots are compressed (e.g., a 50GB disk often results in a **10GB snapshot**).
+2.  **Ephemeral Compute (Spot GPU)**: High-performance GPUs at Spot rates (~$0.18/hr for T4).
+3.  **Active Progress (GCS Sync)**: Large datasets and training outputs are synced to Regional GCS buckets ($0.02/GB) and mapped back to the VM disk on boot.
+
+### The Economics of "Cold Persistence"
+For a standard workspace in `europe-west2` (London) with a **10GB OS Snapshot** and **90GB of GCS Data**:
+
+| Persistence Mode | Status | Monthly Cost |
+| :--- | :--- | :--- |
+| **GCP Always On** | Running 24/7 | **~$129.60** |
+| **RunPod/Lambda** | Stopped Pod | ~$20.00 |
+| **Traditional GCP** | Stopped VM (Disk only) | ~$10.00 |
+| **spot-diffusion** | **Snapshot + GCS** | **~$2.30** |
 
 ---
 
-### Architecture
+### Internal Lifecycle
 
-| Layer | What | Cost |
-|-------|------|------|
-| Compute | Spot T4 (`n1-standard-4`) | ~$0.12/hr |
-| State | Regional snapshot (offline disk) | $0.05/GB |
-| Storage | GCS bucket (models + outputs) | $0.02/GB |
-| Access | SSH tunnel on port 7860 | Free |
+1.  **`make up`**: 
+    - Finds the latest timestamped Golden Image.
+    - Provisions a fresh Spot VM with your configured hardware.
+    - Rsyncs your models/datasets from GCS to the local disk.
+2.  **`make tunnel`**:
+    - Opens an SSH session with multi-port forwarding (Jupyter, WebUIs, Tensorboard) based on `config.mk`.
+3.  **`make sync`**:
+    - Mid-session push to GCS to save current progress.
+4.  **`make down`**:
+    - Final Rsync to GCS and **destruction of the VM**. 
+
+### 📋 Prerequisites
+
+Before you begin, ensure you have:
+1.  **GCP Account**: A project with billing enabled.
+2.  **gcloud CLI**: [Installed](https://cloud.google.com/sdk/docs/install) and authenticated.
+    ```bash
+    gcloud auth login
+    ```
+3.  **Project Quota**: Ensure you have GPU quota (e.g., `NVIDIA_T4_GPUS`) in your target zone.
+4.  **APIs Enabled**: Compute Engine and Cloud Storage APIs must be active.
 
 ---
 
-### Setup (one-time)
+### Getting Started
 
-**1.** Copy the example config and fill in your GCP project, zone, and bucket details:
-
+**1. Configure**
 ```bash
 cp config.mk.example config.mk
+vi config.mk
 ```
 
-**2.** Create the base VM:
-
+**2. Initialize & Bake**
+This one-time process sets up your infrastructure and creates your first "Golden Image."
 ```bash
-make init       # Creates bucket + base VM (~10 min for Nvidia drivers)
-                # Monitor: make ssh → tail -f /var/log/gpu-driver-install.log
-make ssh        # Shell into the VM
+make init     # Creates bucket + base VM + vm setup script (reboot if needed after first launch)
+make ssh      # Install your tools/libraries
+make snapshot # Bakes the Golden Image and destroys the VM
 ```
 
-**3.** Inside the VM:
-
+**3. Daily Productivity**
 ```bash
-sudo fallocate -l 16G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab && sudo swapon -a
-git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
-cd stable-diffusion-webui && ./webui.sh --xformers --exit
-exit
-```
-
-**4.** Bake the golden image:
-
-```bash
-make snapshot   # Saves OS + drivers + venv, keeps last 2 snapshots, optionally destroys VM
+make up       # Launch workstation
+make tunnel   # Start working with tunnels (7860, 8888, etc.)
+make down     # Save work to GCS (optional) and destroy VM
 ```
 
 ---
 
-### Daily Workflow
+### Advanced: Power User Workflows
 
-```bash
-make up         # Restore VM from snapshot, sync models from GCS
-make ui         # Open SSH tunnel → run ./webui.sh --xformers inside VM
-# Open http://localhost:7860
-make sync       # Optional: Mid-session sync top GCS (prevents loss if Spot VM is preempted)
-make down       # Sync outputs/models to GCS, destroy VM
+#### ⚡️ Hardware Scaling
+You aren't locked into T4s. Modify `config.mk` to swap to L4s or A100s for a single session:
+```makefile
+MACHINE_TYPE  = g2-standard-4
+ACCELERATOR   = count=1,type=nvidia-l4
+```
+Run `make up` and your existing OS/Software snapshot will boot onto the new hardware.
+
+#### 🔄 Environment Updates (Re-baking)
+If you install new system libraries (`apt`) or Python packages globally:
+1. `make up`
+2. `make ssh` -> install new tools
+3. `make snapshot`
+The system will create a new timestamped image and use it for all future boots.
+
+#### 🔌 Arbitrary Port Tunneling
+Define ports in `config.mk` to open them during `make tunnel`:
+```makefile
+SSH_FORWARDS = 8888:8888 6006:6006 7860:7860
+```
+
+#### 📂 Directory Syncing
+Map VM directories to GCS subdirectories:
+```makefile
+SYNC_DIRS = ~/models:models ~/outputs:outputs
 ```
 
 ---
 
-### Reference
-
-| Command | What it does |
-|---------|-------------|
-| `make init` | First-time setup: bucket + base VM |
-| `make up` | Restore VM + sync models |
-| `make sync` | Mid-session sync of outputs to GCS |
-| `make down` | Sync outputs + destroy VM |
-| `make snapshot` | Rebake golden image, auto-prune to last 2, prompts to destroy VM |
-| `make ssh` | Plain SSH into VM |
-| `make ui` | SSH tunnel for WebUI (port 7860) |
-| `make teardown` | Delete VM, snapshots, and bucket (with confirmation) |
-
-- **Add models:** Upload `.safetensors` to `gs://your-bucket/models/`
-- **Update WebUI:** `make up` → `git pull` → `make snapshot`
-- **Keep VM, snapshot, and bucket in the same region** to avoid egress fees
+### Troubleshooting & Logs
+- **Initialization**: If `make init` feels slow, SSH in and run `tail -f /var/log/gpu-driver-install.log`.
+- **Preemption**: If GCP terminates your Spot VM, your work is safe in GCS up to the last `make sync`. Just run `make up` again.
+- **Cleanup**: Delete all cloud resources using `make teardown`.
