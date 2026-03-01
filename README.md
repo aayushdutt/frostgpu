@@ -19,17 +19,17 @@ Zero idle cost Stable Diffusion on GCP Spot T4 GPUs. VMs are destroyed after eve
 
 ### Setup (one-time)
 
-**1.** Copy the example config and fill in your GCP details:
+**1.** Copy the example config and fill in your GCP project, zone, and bucket details:
 
 ```bash
 cp config.mk.example config.mk
-# Edit config.mk: set PROJECT_ID, BUCKET, ZONE, VM_NAME, etc.
 ```
 
-**2.** Add your SSH public key to `scripts/cloud-init.yaml`, then:
+**2.** Create the base VM:
 
 ```bash
-make init       # Creates bucket + base VM, installs Nvidia drivers (~10 min)
+make init       # Creates bucket + base VM (~10 min for Nvidia drivers)
+                # Monitor: make ssh → tail -f /var/log/gpu-driver-install.log
 make ssh        # Shell into the VM
 ```
 
@@ -46,7 +46,7 @@ exit
 **4.** Bake the golden image:
 
 ```bash
-make snapshot   # Saves OS + drivers + venv, destroys VM
+make snapshot   # Saves OS + drivers + venv, keeps last 2 snapshots, optionally destroys VM
 ```
 
 ---
@@ -69,9 +69,10 @@ make down       # Sync outputs/models to GCS, destroy VM
 | `make init` | First-time setup: bucket + base VM |
 | `make up` | Restore VM + sync models |
 | `make down` | Sync outputs + destroy VM |
-| `make snapshot` | Rebake golden image + destroy VM |
+| `make snapshot` | Rebake golden image, auto-prune to last 2, prompts to destroy VM |
 | `make ssh` | Plain SSH into VM |
 | `make ui` | SSH tunnel for WebUI (port 7860) |
+| `make teardown` | Delete VM, snapshots, and bucket (with confirmation) |
 
 - **Add models:** Upload `.safetensors` to `gs://your-bucket/models/`
 - **Update WebUI:** `make up` → `git pull` → `make snapshot`

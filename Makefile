@@ -1,7 +1,7 @@
 # User configuration — copy config.mk.example to config.mk and fill in your values.
 -include config.mk
 
-.PHONY: init up down snapshot ssh ui
+.PHONY: init up down snapshot ssh ui teardown
 
 init:
 	@chmod +x scripts/*.sh
@@ -21,3 +21,6 @@ ui:
 
 ssh:
 	@gcloud compute ssh $(VM_USER)@$(VM_NAME) --zone=$(ZONE) --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null"
+
+teardown:
+	@./scripts/teardown.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(SNAPSHOT)

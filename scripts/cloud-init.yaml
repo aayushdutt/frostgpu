@@ -5,8 +5,6 @@ users:
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: true
-    ssh_authorized_keys:
-      - YOUR_PUBLIC_SSH_KEY_HERE
 
 package_update: true
 package_upgrade: true
@@ -34,11 +32,10 @@ write_files:
       PermitRootLogin no
 
 runcmd:
-  - ubuntu-drivers autoinstall
+  - ubuntu-drivers autoinstall >> /var/log/gpu-driver-install.log 2>&1
   - sysctl -p /etc/sysctl.d/99-swappiness.conf
   - curl -LsSf https://astral.sh/uv/install.sh | sudo -u automatic sh
   - echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/automatic/.bashrc
   - echo 'source /usr/share/doc/fzf/examples/completion.bash' >> /home/automatic/.bashrc
-  - echo 'if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ]; then tmux attach || tmux new; fi' >> /home/automatic/.bashrc
   - chown automatic:automatic /home/automatic/.bashrc
   - systemctl reload ssh
