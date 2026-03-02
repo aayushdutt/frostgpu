@@ -4,13 +4,19 @@
 SSH_FLAGS=("-o" "StrictHostKeyChecking=no" "-o" "UserKnownHostsFile=/dev/null")
 
 # Load configuration if environment file exists
-# This allows scripts to be run directly with ENV_FILE=.env.l4
-if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
-  # Source without comments and handle exports
-  export $(grep -v '^#' "$ENV_FILE" | xargs)
-elif [ -f "$SCRIPT_DIR/../.env" ]; then
-  # Fallback to default .env if no ENV_FILE is provided
-  export $(grep -v '^#' "$SCRIPT_DIR/../.env" | xargs)
+# This handles the case where scripts are run directly without the Makefile.
+# If variables are already set (e.g., via Makefile export), we don't re-source and overwrite.
+if [ -z "$PROJECT_ID" ]; then
+  # ENV_FILE is provided by the Makefile as the filename (e.g. .env.l4)
+  # If empty, we default to the standard .env
+  TARGET_ENV="${ENV:-$SCRIPT_DIR/../.env}"
+  
+  if [[ -f "$TARGET_ENV" ]]; then
+    export $(grep -v '^#' "$TARGET_ENV" | xargs)
+  elif [[ -f "$SCRIPT_DIR/../$TARGET_ENV" ]]; then
+    # In case ENV is a relative filename from the root
+    export $(grep -v '^#' "$SCRIPT_DIR/../$TARGET_ENV" | xargs)
+  fi
 fi
 
 # Logging helpers

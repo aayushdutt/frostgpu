@@ -25,6 +25,10 @@ if [[ ${#SYNC_PAIRS[@]} -gt 0 ]]; then
     
     for pair in "${SYNC_PAIRS[@]}"; do
       LOCAL="${pair%%:*}"
+      if [[ -z "$LOCAL" || "$LOCAL" == "/" ]]; then
+        log_error "Safety Check: skipping invalid sync local path '$LOCAL' to prevent data loss."
+        continue
+      fi
       log_warn "Emptying ${LOCAL}..."
       ssh_cmd "$VM_USER" "$VM" "$ZONE" "rm -rf '${LOCAL}'/*" || log_warn "Failed to empty ${LOCAL}."
     done

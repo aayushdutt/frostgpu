@@ -50,7 +50,7 @@ if [[ "$VM" == *"-downloader" ]]; then
     --provisioning-model=SPOT --maintenance-policy=TERMINATE \
     --source-snapshot="$SNAP_NAME" \
     --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
-    --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
+    --scopes=https://www.googleapis.com/auth/devstorage.read_write,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append > /dev/null
 else
   gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
     --machine-type="${MACHINE_TYPE:-n1-standard-4}" \
@@ -58,7 +58,7 @@ else
     --provisioning-model=SPOT --maintenance-policy=TERMINATE \
     --source-snapshot="$SNAP_NAME" \
     --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
-    --scopes=https://www.googleapis.com/auth/cloud-platform > /dev/null
+    --scopes=https://www.googleapis.com/auth/devstorage.read_write,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append > /dev/null
 fi
 log_info "VM created."
 

@@ -37,6 +37,5 @@ runcmd:
   - sysctl -p /etc/sysctl.d/99-swappiness.conf
   - curl -LsSf https://astral.sh/uv/install.sh | sudo -u {{VM_USER}} sh
   - echo 'source /usr/share/doc/fzf/examples/key-bindings.bash' >> /home/{{VM_USER}}/.bashrc
-  - echo 'source /usr/share/doc/fzf/examples/completion.bash' >> /home/{{VM_USER}}/.bashrc
   - chown {{VM_USER}}:{{VM_USER}} /home/{{VM_USER}}/.bashrc
   - systemctl reload ssh

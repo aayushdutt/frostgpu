@@ -25,7 +25,7 @@ gcloud compute instances create "$VM_NAME" \
   --provisioning-model=SPOT --maintenance-policy=TERMINATE \
   --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
   --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \
-  --scopes=https://www.googleapis.com/auth/cloud-platform \
+  --scopes=https://www.googleapis.com/auth/devstorage.read_write,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append \
   --metadata-from-file=user-data="$CLOUD_INIT_TEMP" > /dev/null
 
 rm "$CLOUD_INIT_TEMP"
