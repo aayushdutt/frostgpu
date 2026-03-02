@@ -1,1 +1,3 @@
-config.mk
+.env
+.env.*
+!.env.example

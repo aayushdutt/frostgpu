@@ -3,6 +3,16 @@
 # Shared constants
 SSH_FLAGS=("-o" "StrictHostKeyChecking=no" "-o" "UserKnownHostsFile=/dev/null")
 
+# Load configuration if environment file exists
+# This allows scripts to be run directly with ENV_FILE=.env.l4
+if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then
+  # Source without comments and handle exports
+  export $(grep -v '^#' "$ENV_FILE" | xargs)
+elif [ -f "$SCRIPT_DIR/../.env" ]; then
+  # Fallback to default .env if no ENV_FILE is provided
+  export $(grep -v '^#' "$SCRIPT_DIR/../.env" | xargs)
+fi
+
 # Logging helpers
 log_info()    { echo -e "     ✅ \033[0;32m$1\033[0m"; }
 log_warn()    { echo -e "     ⚠️  \033[0;33m$1\033[0m"; }

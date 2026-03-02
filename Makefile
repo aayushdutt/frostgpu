@@ -1,12 +1,10 @@
 # Ensure scripts are executable on every run
 _ := $(shell chmod +x scripts/*.sh)
 
-# User configuration — copy config.mk.example to config.mk and fill in your values.
--include config.mk
-
-# Export variables to sub-shells so scripts can access them directly
-# (Reduces noise in the target definitions)
-export PROJECT_ID BUCKET ZONE VM_NAME SNAPSHOT VM_USER SYNC_DIRS SSH_FORWARDS MACHINE_TYPE ACCELERATOR DISK_SIZE DOWNLOADER_MACHINE_TYPE
+# Configuration
+ENV ?= .env
+-include $(ENV)
+export
 
 .PHONY: init up down sync snapshot ssh tunnel teardown stop vm-stop dl-up dl-down dl-stop dl-sync dl-ssh
 

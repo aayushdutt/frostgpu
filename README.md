@@ -31,7 +31,7 @@ For a standard workspace in `europe-west2` (London) with a **10GB OS Snapshot** 
     - Provisions a fresh Spot VM with your configured hardware.
     - Rsyncs your models/datasets from GCS to the local disk.
 2.  **`make tunnel`**:
-    - Opens an SSH session with multi-port forwarding (Jupyter, WebUIs, Tensorboard) based on `config.mk`.
+    - Opens an SSH session with multi-port forwarding (Jupyter, WebUIs, Tensorboard) based on `SSH_FORWARDS`.
 3.  **`make sync`**:
     - Mid-session push to GCS to save current progress.
 4.  **`make down`**:
@@ -41,11 +41,8 @@ For a standard workspace in `europe-west2` (London) with a **10GB OS Snapshot** 
 
 Before you begin, ensure you have:
 1.  **GCP Account**: A project with billing enabled.
-2.  **gcloud CLI**: [Installed](https://cloud.google.com/sdk/docs/install) and authenticated.
-    ```bash
-    gcloud auth login
-    ```
-3.  **Project Quota**: Ensure you have GPU quota (e.g., `NVIDIA_T4_GPUS`) in your target zone.
+2.  **gcloud CLI**: [Installed](https://cloud.google.com/sdk/docs/install) and authenticated (`gcloud auth login`).
+3.  **Project Quota**: Ensure you have GPU quota (e.g., `NVIDIA_T4_GPUS`, `NVIDIA_L4_GPUS`) in your target zone.
 4.  **APIs Enabled**: Compute Engine and Cloud Storage APIs must be active.
 
 ---
@@ -53,47 +50,59 @@ Before you begin, ensure you have:
 ### Getting Started
 
 **1. Configure**
+Copy the base environment file and fill in your values.
 ```bash
-cp config.mk.example config.mk
-vi config.mk
+cp .env.example .env
+vi .env
 ```
 
 **2. Initialize & Bake**
 This one-time process sets up your infrastructure and creates your first "Golden Image."
 ```bash
-make init     # Creates bucket + base VM + vm setup script (reboot if needed after first launch)
-make ssh      # Install your tools/libraries
+make init     # Creates bucket + base VM + setup scripts
+make ssh      # Install your tools/libraries (Stable Diffusion, etc.)
 make snapshot # Bakes the Golden Image and destroys the VM
 ```
 
 **3. Daily Productivity**
 ```bash
 make up       # Launch workstation
-make tunnel   # Start working with tunnels (7860, 8888, etc.)
-make down     # Save work to GCS (optional) and destroy VM
+make tunnel   # Start working with tunnels (7860, etc.)
+make down     # Save work to GCS and destroy VM
 ```
 
 **4. Model Downloader (Cost Optimization)**
-To download large models without paying GPU rates, you can spin up a dedicated CPU-only instance from your same snapshot.
+To download large models without paying GPU rates:
 ```bash
 make dl-up    # Launch a cheap CPU-only (e2-small) instance
 make dl-ssh   # SSH to download models using wget/hf-cli
 make dl-sync  # Push the downloaded models to GCS
 make dl-down  # Destroy the CPU instance
 ```
-It maintains the exact same environment and permissions, allowing you to sync `SYNC_DIRS` just like the main node.
+
+---
+
+### 🌐 Multi-Environment Management
+
+You can maintain multiple environments (e.g., T4 in London vs. L4 in Seoul) by creating multiple `.env` files.
+
+**1. Create a new environment**
+```bash
+cp .env .env.l4
+vi .env.l4 # Update ZONE, MACHINE_TYPE, ACCELERATOR, and VM_NAME
+```
+
+**2. Switch environments**
+Change the `ENV` variable at the top of the `Makefile`:
+```makefile
+# Makefile
+ENV ?= .env.l4  # Point to your new environment
+```
+Now all commands (`make up`, `make down`, etc.) will automatically target that environment.
 
 ---
 
 ### Advanced: Power User Workflows
-
-#### ⚡️ Hardware Scaling
-You aren't locked into T4s. Modify `config.mk` to swap to L4s or A100s for a single session:
-```makefile
-MACHINE_TYPE  = g2-standard-4
-ACCELERATOR   = count=1,type=nvidia-l4
-```
-Run `make up` and your existing OS/Software snapshot will boot onto the new hardware.
 
 #### 🔄 Environment Updates (Re-baking)
 If you install new system libraries (`apt`) or Python packages globally:
@@ -103,15 +112,15 @@ If you install new system libraries (`apt`) or Python packages globally:
 The system will create a new timestamped image and use it for all future boots.
 
 #### 🔌 Arbitrary Port Tunneling
-Define ports in `config.mk` to open them during `make tunnel`:
-```makefile
-SSH_FORWARDS = 8888:8888 6006:6006 7860:7860
+Define ports in your `.env` to open them during `make tunnel`:
+```bash
+SSH_FORWARDS=8888:8888 6006:6006 7860:7860
 ```
 
 #### 📂 Directory Syncing
-Map VM directories to GCS subdirectories:
-```makefile
-SYNC_DIRS = ~/models:models ~/outputs:outputs
+Map VM directories to GCS subdirectories in your `.env`:
+```bash
+SYNC_DIRS=/home/user/models:models /home/user/outputs:outputs
 ```
 
 ---
