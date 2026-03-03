@@ -14,35 +14,45 @@ export
 
 .PHONY: init up down sync snapshot ssh tunnel teardown stop vm-stop dl-up dl-down dl-stop dl-sync dl-ssh
 
-# Dynamic target VM name based on goal prefix
-TARGET_VM = $(VM_NAME)
-
-dl-%: TARGET_VM = $(VM_NAME)-downloader
-
 init:
 	@chmod +x scripts/*.sh
-	@./scripts/infra-init.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(VM_USER)
+	@./scripts/infra-init.sh
 
-up dl-up:
-	@./scripts/vm-up.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(TARGET_VM) $(SNAPSHOT) $(VM_USER) $(SYNC_DIRS)
+up:
+	@./scripts/vm-up.sh
 
-down dl-down:
-	@./scripts/vm-down.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(TARGET_VM) $(VM_USER) $(SYNC_DIRS)
+dl-up:
+	@IS_DOWNLOADER=true ./scripts/vm-up.sh
 
-stop dl-stop vm-stop:
-	@./scripts/vm-stop.sh $(PROJECT_ID) $(ZONE) $(TARGET_VM)
+down:
+	@./scripts/vm-down.sh
 
-sync dl-sync:
-	@./scripts/vm-sync.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(TARGET_VM) $(VM_USER) $(SYNC_DIRS)
+dl-down:
+	@IS_DOWNLOADER=true ./scripts/vm-down.sh
 
-ssh dl-ssh:
-	@gcloud compute ssh $(VM_USER)@$(TARGET_VM) --zone=$(ZONE) --ssh-flag="-o StrictHostKeyChecking=no" --ssh-flag="-o UserKnownHostsFile=/dev/null"
+stop vm-stop:
+	@./scripts/vm-stop.sh
+
+dl-stop:
+	@IS_DOWNLOADER=true ./scripts/vm-stop.sh
+
+sync:
+	@./scripts/vm-sync.sh
+
+dl-sync:
+	@IS_DOWNLOADER=true ./scripts/vm-sync.sh
+
+ssh:
+	@./scripts/vm-ssh.sh
+
+dl-ssh:
+	@IS_DOWNLOADER=true ./scripts/vm-ssh.sh
 
 tunnel:
-	@./scripts/vm-tunnel.sh $(VM_USER) $(VM_NAME) $(ZONE) $(SSH_FORWARDS)
+	@./scripts/vm-tunnel.sh
 
 snapshot:
-	@./scripts/vm-snapshot.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(SNAPSHOT) $(VM_USER) $(SYNC_DIRS)
+	@./scripts/vm-snapshot.sh
 
 teardown:
-	@./scripts/teardown.sh $(PROJECT_ID) $(BUCKET) $(ZONE) $(VM_NAME) $(SNAPSHOT)
+	@./scripts/teardown.sh

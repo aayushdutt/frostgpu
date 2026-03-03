@@ -72,13 +72,17 @@ make down     # Save work to GCS and destroy VM
 ```
 
 **4. Model Downloader (Cost Optimization)**
-To download large models without paying GPU rates:
+To download large models without paying GPU rates, the downloader VM uses
+**GCS FUSE mounting** (`gcsfuse`). Directories defined in `SYNC_DIRS` are
+mounted directly onto the GCS bucket — anything written to the local path
+lands in GCS in real-time with no manual sync step required.
 ```bash
-make dl-up    # Launch a cheap CPU-only (e2-small) instance
-make dl-ssh   # SSH to download models using wget/hf-cli
-make dl-sync  # Push the downloaded models to GCS
-make dl-down  # Destroy the CPU instance
+make dl-up    # Launch a cheap e2-small VM with FUSE-mounted GCS dirs
+make dl-ssh   # SSH in and download models (writes go straight to GCS)
+make dl-down  # Unmount and destroy the instance
 ```
+> **Note:** `make dl-sync` is a no-op for downloader VMs — it exits early
+> with a warning since files are already in GCS via the FUSE mount.
 
 ---
 

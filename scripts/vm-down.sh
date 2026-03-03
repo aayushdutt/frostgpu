@@ -3,22 +3,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
-: "${1:?Usage: vm-down.sh <PROJECT> <BUCKET> <ZONE> <VM> <VM_USER> [SYNC_DIRS...]}"
-PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; VM_USER=${5:-$(whoami)}
+# Required variables are validated by lib.sh on load
 
 trap 'echo ""; log_error "Sync failed! VM is still running. Fix issues and re-run the down command."' ERR
 
 log_step "Cleaning up persistence..."
-if [[ "$VM" == *"-downloader" ]]; then
+if [[ "$VM_NAME" == *"-downloader" ]]; then
   # For downloader, we just unmount. Files are already in GCS.
-  shift 5
-  unmount_dirs "$VM_USER" "$VM" "$ZONE" "$@"
+  unmount_dirs "$VM_USER" "$VM_NAME" "$ZONE" "${SYNC_PAIRS[@]}"
 else
   # For GPU machine, we do a final rsync
-  "$SCRIPT_DIR/vm-sync.sh" "$@"
+  "$SCRIPT_DIR/vm-sync.sh"
 fi
 
 trap - ERR
 log_step "Destroying VM..."
-gcloud compute instances delete "$VM" --project="$PROJECT" --zone="$ZONE" --delete-disks=boot --quiet > /dev/null
+gcloud compute instances delete "$VM_NAME" --project="$PROJECT_ID" --zone="$ZONE" --delete-disks=boot --quiet > /dev/null
 log_info "VM destroyed. No idle costs."

@@ -3,21 +3,91 @@
 # Shared constants
 SSH_FLAGS=("-o" "StrictHostKeyChecking=no" "-o" "UserKnownHostsFile=/dev/null")
 
-# Load configuration if environment file exists
-# This handles the case where scripts are run directly without the Makefile.
-# If variables are already set (e.g., via Makefile export), we don't re-source and overwrite.
+# 1. Environment Loading
 if [ -z "$PROJECT_ID" ]; then
-  # ENV_FILE is provided by the Makefile as the filename (e.g. .env.t4)
-  # If empty, we default to the standard .env
+  # SCRIPT_DIR is expected to be set by the caller
   TARGET_ENV="${ENV:-$SCRIPT_DIR/../.env}"
-  
   if [[ -f "$TARGET_ENV" ]]; then
     export $(grep -v '^#' "$TARGET_ENV" | xargs)
   elif [[ -f "$SCRIPT_DIR/../$TARGET_ENV" ]]; then
-    # In case ENV is a relative filename from the root
     export $(grep -v '^#' "$SCRIPT_DIR/../$TARGET_ENV" | xargs)
   fi
 fi
+
+# 2. Defaults
+: "${VM_NAME:=gpu-workspace}"
+: "${VM_USER:=ubuntu}"
+: "${SNAPSHOT:=gpu-golden-image}"
+: "${MACHINE_TYPE:=g2-standard-4}"
+: "${ACCELERATOR:=count=1,type=nvidia-l4}"
+: "${DISK_SIZE:=50GB}"
+: "${DOWNLOADER_MACHINE_TYPE:=e2-small}"
+
+# Handle Downloader Mode naming suffix
+if [[ "$IS_DOWNLOADER" == "true" && "$VM_NAME" != *"-downloader" ]]; then
+  export VM_NAME="${VM_NAME}-downloader"
+fi
+
+# 3. Global Array Parsing
+# Converts ".env" strings into Bash arrays for script consumption
+IFS=' ' read -r -a SYNC_PAIRS <<< "$SYNC_DIRS"
+IFS=' ' read -r -a FORWARDS <<< "$SSH_FORWARDS"
+
+# 4. Validation Config
+REQUIRED_VARS=(
+  "PROJECT_ID"
+  "BUCKET"
+  "ZONE"
+)
+
+# 5. Derived Variables
+REGION="${ZONE%-*}"
+
+# 6. Validation Helpers
+check_var() {
+  local var_name=$1
+  local value="${!var_name}"
+  if [[ -z "$value" ]]; then
+    log_error "Missing required variable: $var_name"
+    echo "       Check your .env file or export it manually."
+    exit 1
+  fi
+}
+
+validate_config() {
+  for var in "${REQUIRED_VARS[@]}"; do
+    check_var "$var"
+  done
+
+  # Format checks
+  if [[ ! "$BUCKET" == gs://* ]]; then
+    log_error "Invalid BUCKET format: '$BUCKET'"
+    echo "       It must start with 'gs://' (e.g., gs://my-gpu-bucket)"
+    exit 1
+  fi
+
+  if [[ ! "$ZONE" =~ ^[a-z]+-[a-z]+[0-9]-[a-z]$ ]]; then
+    log_warn "ZONE '$ZONE' doesn't look like a standard GCP zone (e.g., us-central1-a)."
+    echo "       Proceeding, but check for typos if gcloud fails."
+    echo "       Expected format: <region>-<zone> (e.g., us-central1-a)"
+  fi
+
+  # Dependency & Format Checks
+  if ! command -v gcloud &> /dev/null; then
+    log_error "'gcloud' CLI is not installed. Please install it to continue."
+    exit 1
+  fi
+
+  if [[ "$PROJECT_ID" == "your-gcp-project-id" ]]; then
+    log_error "PROJECT_ID is still 'your-gcp-project-id'. Please update your .env file."
+    exit 1
+  fi
+
+  if [[ "$BUCKET" == "gs://your-gpu-vault-bucket" ]]; then
+    log_error "BUCKET is still 'gs://your-gpu-vault-bucket'. Please update your .env file."
+    exit 1
+  fi
+}
 
 # Logging helpers
 log_info()    { echo -e "     ✅ \033[0;32m$1\033[0m"; }
@@ -60,6 +130,7 @@ sync_dirs() {
   fi
 
   for pair in "${pairs[@]}"; do
+    [[ -z "$pair" ]] && continue
     local local_path="${pair%%:*}"
     local remote_path="${pair#*:}"
     
@@ -87,7 +158,14 @@ mount_dirs() {
   local bucket_name=${bucket#gs://}
 
   log_step "Mounting GCS folders (FUSE)..."
+
+  ssh_cmd "$user" "$vm" "$zone" "command -v gcsfuse &> /dev/null" || {
+    log_error "'gcsfuse' is not installed on the remote VM. Downloader mode requires it."
+    exit 1
+  }
+
   for pair in "${pairs[@]}"; do
+    [[ -z "$pair" ]] && continue
     local local_path="${pair%%:*}"
     local remote_path="${pair#*:}"
     
@@ -106,8 +184,14 @@ unmount_dirs() {
 
   log_step "Unmounting GCS folders..."
   for pair in "${pairs[@]}"; do
+    [[ -z "$pair" ]] && continue
     local local_path="${pair%%:*}"
     echo "     ⏏️  ${local_path}"
     ssh_cmd "$user" "$vm" "$zone" "fusermount -u '${local_path}' || true" > /dev/null
   done
 }
+
+# Auto-validate on load (unless SKIP_VAL is set)
+if [[ -z "$SKIP_VALIDATION" ]]; then
+  validate_config
+fi
