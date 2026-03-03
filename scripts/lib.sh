@@ -7,7 +7,7 @@ SSH_FLAGS=("-o" "StrictHostKeyChecking=no" "-o" "UserKnownHostsFile=/dev/null")
 # This handles the case where scripts are run directly without the Makefile.
 # If variables are already set (e.g., via Makefile export), we don't re-source and overwrite.
 if [ -z "$PROJECT_ID" ]; then
-  # ENV_FILE is provided by the Makefile as the filename (e.g. .env.l4)
+  # ENV_FILE is provided by the Makefile as the filename (e.g. .env.t4)
   # If empty, we default to the standard .env
   TARGET_ENV="${ENV:-$SCRIPT_DIR/../.env}"
   

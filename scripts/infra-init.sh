@@ -17,11 +17,11 @@ log_step "[1/2] Creating GCS Bucket..."
 gcloud storage buckets create "$BUCKET" --location="$REGION" --project="$PROJECT_ID" > /dev/null 2>&1 \
   && log_info "Bucket ready." || log_warn "Bucket already exists."
 
-log_step "[2/2] Launching Base VM (${MACHINE_TYPE:-n1-standard-4} + ${ACCELERATOR:-T4})..."
+log_step "[2/2] Launching Base VM (${MACHINE_TYPE:-g2-standard-4} + ${ACCELERATOR:-L4})..."
 gcloud compute instances create "$VM_NAME" \
   --project="$PROJECT_ID" --zone="$ZONE" \
-  --machine-type="${MACHINE_TYPE:-n1-standard-4}" \
-  --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
+  --machine-type="${MACHINE_TYPE:-g2-standard-4}" \
+  --accelerator="${ACCELERATOR:-count=1,type=nvidia-l4}" \
   --provisioning-model=SPOT --maintenance-policy=TERMINATE \
   --image-family=ubuntu-2404-lts-amd64 --image-project=ubuntu-os-cloud \
   --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \

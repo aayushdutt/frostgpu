@@ -17,8 +17,8 @@ wait_for_ssh() {
       log_error "VM unreachable after ${max_attempts} attempts. Aborting."
       exit 1
     fi
-    echo "     Attempt ${attempt}/${max_attempts}... retrying in 10s"
-    sleep 10
+    echo "     Attempt ${attempt}/${max_attempts}... retrying in 2s"
+    sleep 2
     ((attempt++))
   done
   log_info "VM is reachable."
@@ -53,8 +53,8 @@ if [[ "$VM" == *"-downloader" ]]; then
     --scopes=https://www.googleapis.com/auth/devstorage.read_write,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append > /dev/null
 else
   gcloud compute instances create "$VM" --project="$PROJECT" --zone="$ZONE" \
-    --machine-type="${MACHINE_TYPE:-n1-standard-4}" \
-    --accelerator="${ACCELERATOR:-count=1,type=nvidia-tesla-t4}" \
+    --machine-type="${MACHINE_TYPE:-g2-standard-4}" \
+    --accelerator="${ACCELERATOR:-count=1,type=nvidia-l4}" \
     --provisioning-model=SPOT --maintenance-policy=TERMINATE \
     --source-snapshot="$SNAP_NAME" \
     --boot-disk-size="${DISK_SIZE:-50GB}" --boot-disk-type=pd-balanced \

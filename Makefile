@@ -4,9 +4,9 @@ _ := $(shell chmod +x scripts/*.sh)
 # Configuration
 # ==============================================================================
 # To switch environments, change this variable to point to your desired file
-# (e.g., .env for T4/London, .env.l4 for L4/Seoul).
+# (e.g., .env for L4/Seoul, .env.t4 for T4/London).
 #
-# You can also override it via CLI: make up ENV=.env
+# You can also override it via CLI: make up ENV=.env.t4
 # ==============================================================================
 ENV ?= .env
 -include $(ENV)

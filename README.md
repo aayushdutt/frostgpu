@@ -84,19 +84,19 @@ make dl-down  # Destroy the CPU instance
 
 ### 🌐 Multi-Environment Management
 
-You can maintain multiple environments (e.g., T4 in London vs. L4 in Seoul) by creating multiple `.env` files.
+You can maintain multiple environments (e.g., L4 in Seoul vs. T4 in London) by creating multiple `.env` files.
 
 **1. Create a new environment**
 ```bash
-cp .env .env.l4
-vi .env.l4 # Update ZONE, MACHINE_TYPE, ACCELERATOR, and VM_NAME
+cp .env .env.t4
+vi .env.t4 # Update ZONE, MACHINE_TYPE, ACCELERATOR, and VM_NAME
 ```
 
 **2. Switch environments**
 Change the `ENV` variable at the top of the `Makefile`:
 ```makefile
 # Makefile
-ENV ?= .env.l4  # Point to your new environment
+ENV ?= .env.t4  # Point to your new environment
 ```
 Now all commands (`make up`, `make down`, etc.) will automatically target that environment.
 
