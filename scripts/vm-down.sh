@@ -8,8 +8,15 @@ PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; VM_USER=${5:-$(whoami)}
 
 trap 'echo ""; log_error "Sync failed! VM is still running. Fix issues and re-run the down command."' ERR
 
-log_step "Syncing to GCS..."
-"$SCRIPT_DIR/vm-sync.sh" "$@"
+log_step "Cleaning up persistence..."
+if [[ "$VM" == *"-downloader" ]]; then
+  # For downloader, we just unmount. Files are already in GCS.
+  shift 5
+  unmount_dirs "$VM_USER" "$VM" "$ZONE" "$@"
+else
+  # For GPU machine, we do a final rsync
+  "$SCRIPT_DIR/vm-sync.sh" "$@"
+fi
 
 trap - ERR
 log_step "Destroying VM..."

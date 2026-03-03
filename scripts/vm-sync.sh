@@ -8,6 +8,11 @@ PROJECT=$1; BUCKET=$2; ZONE=$3; VM=$4; VM_USER=${5:-$(whoami)}
 shift 5
 SYNC_PAIRS=("$@")
 
+if [[ "$VM" == *"-downloader" ]]; then
+  log_warn "VM '$VM' is in Downloader Mode (FUSE). Manual sync is not required."
+  exit 0
+fi
+
 log_step "Pushing workspace to GCS..."
 sync_dirs "down" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
 log_info "Sync complete."

@@ -20,6 +20,7 @@ packages:
   - nvtop
   - tree
   - ubuntu-drivers-common
+  - gcsfuse
 
 write_files:
   - path: /etc/sysctl.d/99-swappiness.conf
@@ -33,6 +34,11 @@ write_files:
       PermitRootLogin no
 
 runcmd:
+  # Install GCS FUSE Repo
+  - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt gcsfuse-$(lsb_release -c -s) main" | tee /etc/apt/sources.list.d/gcsfuse.list
+  - apt-get update && apt-get install -y gcsfuse
+  
   - ubuntu-drivers autoinstall >> /var/log/gpu-driver-install.log 2>&1
   - sysctl -p /etc/sysctl.d/99-swappiness.conf
   - curl -LsSf https://astral.sh/uv/install.sh | sudo -u {{VM_USER}} sh

@@ -15,28 +15,32 @@ REGION="${ZONE%-*}"
 log_step "Preparing snapshot for '$VM'..."
 
 if [[ ${#SYNC_PAIRS[@]} -gt 0 ]]; then
-  echo ""
-  echo "📦 SYNC & CLEAN?"
-  echo "   (This syncs to GCS, empties local folders, then snapshots for a lean golden image)"
-  read -r -p "   Proceed with auto-sync and deep clean? (Y/n): " autopre < /dev/tty
-  if [[ ! "$autopre" =~ ^[Nn]$ ]]; then
-    log_step "Syncing to GCS..."
-    sync_dirs "down" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
-    
-    for pair in "${SYNC_PAIRS[@]}"; do
-      LOCAL="${pair%%:*}"
-      if [[ -z "$LOCAL" || "$LOCAL" == "/" ]]; then
-        log_error "Safety Check: skipping invalid sync local path '$LOCAL' to prevent data loss."
-        continue
-      fi
-      log_warn "Emptying ${LOCAL}..."
-      ssh_cmd "$VM_USER" "$VM" "$ZONE" "rm -rf '${LOCAL}'/*" || log_warn "Failed to empty ${LOCAL}."
-    done
-    log_info "Sync & Clean complete."
+  if [[ "$VM" == *"-downloader" ]]; then
+    log_warn "VM '$VM' is in Downloader Mode (FUSE). Skipping sync & clean to prevent data loss in bucket."
   else
-    log_warn "Skipping sync/clean. Snapshot will include local data (higher storage cost)."
-    read -r -p "   Continue with snapshot anyway? (y/N): " proceed < /dev/tty
-    [[ ! "$proceed" =~ ^[Yy]$ ]] && echo "Aborted." && exit 0
+    echo ""
+    echo "📦 SYNC & CLEAN?"
+    echo "   (This syncs to GCS, empties local folders, then snapshots for a lean golden image)"
+    read -r -p "   Proceed with auto-sync and deep clean? (Y/n): " autopre < /dev/tty
+    if [[ ! "$autopre" =~ ^[Nn]$ ]]; then
+      log_step "Syncing to GCS..."
+      sync_dirs "down" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
+      
+      for pair in "${SYNC_PAIRS[@]}"; do
+        LOCAL="${pair%%:*}"
+        if [[ -z "$LOCAL" || "$LOCAL" == "/" ]]; then
+          log_error "Safety Check: skipping invalid sync local path '$LOCAL' to prevent data loss."
+          continue
+        fi
+        log_warn "Emptying ${LOCAL}..."
+        ssh_cmd "$VM_USER" "$VM" "$ZONE" "rm -rf '${LOCAL}'/*" || log_warn "Failed to empty ${LOCAL}."
+      done
+      log_info "Sync & Clean complete."
+    else
+      log_warn "Skipping sync/clean. Snapshot will include local data (higher storage cost)."
+      read -r -p "   Continue with snapshot anyway? (y/N): " proceed < /dev/tty
+      [[ ! "$proceed" =~ ^[Yy]$ ]] && echo "Aborted." && exit 0
+    fi
   fi
 fi
 

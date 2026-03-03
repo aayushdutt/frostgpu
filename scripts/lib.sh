@@ -77,3 +77,37 @@ sync_dirs() {
     fi
   done
 }
+
+# Mount Logic (Downloader Mode)
+# Usage: mount_dirs <BUCKET> <VM_USER> <VM_NAME> <ZONE> [SYNC_PAIRS...]
+mount_dirs() {
+  local bucket=$1; local user=$2; local vm=$3; local zone=$4
+  shift 4
+  local pairs=("$@")
+  local bucket_name=${bucket#gs://}
+
+  log_step "Mounting GCS folders (FUSE)..."
+  for pair in "${pairs[@]}"; do
+    local local_path="${pair%%:*}"
+    local remote_path="${pair#*:}"
+    
+    echo "     🔗  ${bucket}/${remote_path}/  ↔  ${local_path}"
+    # We use --implicit-dirs so that gcsfuse sees directories even if there are no placeholder objects
+    # We use --only-dir to mount a specific subfolder as the root of the mount point
+    ssh_cmd "$user" "$vm" "$zone" "mkdir -p '${local_path}' && \
+      gcsfuse --implicit-dirs --only-dir '${remote_path}' '${bucket_name}' '${local_path}'" > /dev/null
+  done
+}
+
+unmount_dirs() {
+  local user=$1; local vm=$2; local zone=$3
+  shift 3
+  local pairs=("$@")
+
+  log_step "Unmounting GCS folders..."
+  for pair in "${pairs[@]}"; do
+    local local_path="${pair%%:*}"
+    echo "     ⏏️  ${local_path}"
+    ssh_cmd "$user" "$vm" "$zone" "fusermount -u '${local_path}' || true" > /dev/null
+  done
+}

@@ -64,7 +64,12 @@ log_info "VM created."
 
 wait_for_ssh
 
-# 4. Sync Data
-log_step "Pulling data from GCS..."
-sync_dirs "up" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
+# 4. Data Persistence
+if [[ "$VM" == *"-downloader" ]]; then
+  mount_dirs "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
+else
+  log_step "Pulling data from GCS..."
+  sync_dirs "up" "$BUCKET" "$VM_USER" "$VM" "$ZONE" "${SYNC_PAIRS[@]}"
+fi
+
 log_info "System online. Use 'make tunnel' or 'make ssh' to connect."
